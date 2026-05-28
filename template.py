@@ -8,6 +8,8 @@ Instructions:
     3. Copy this file to solution/solution.py when done.
     4. Run: pytest tests/ -v
 """
+API_KEY = ''
+from openai import OpenAI
 
 import os
 import time
@@ -50,11 +52,38 @@ def call_openai(
 
     Hint:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = OpenAI(api_key=")
     """
     # TODO: import OpenAI, create client, call chat.completions.create,
     #       measure start/end time, return (response_text, latency)
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1", 
+        api_key=API_KEY, 
+    )
+    start_time = time.time()
+
+        
+    response = client.chat.completions.create(
+    model=OPENAI_MODEL,
+    messages=[
+        {"role": "user", "content": prompt}
+    ],
+    temperature=temperature,
+    top_p=top_p,
+    max_tokens=max_tokens,
+    )
+    end_time = time.time()
+    latency = end_time - start_time
+
+    # 5. Trích xuất câu trả lời từ cấu trúc JSON trả về
+    response_text = response.choices[0].message.content
+
+    # 6. Trả về đúng định dạng tuple
+    return response_text, latency
     raise NotImplementedError("Implement call_openai")
+
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +112,28 @@ def call_openai_mini(
         Reuse call_openai() by passing model=OPENAI_MINI_MODEL.
     """
     # TODO: call call_openai with model=OPENAI_MINI_MODEL
+    client = OpenAI(
+    base_url="https://openrouter.ai/api/v1", 
+    api_key=API_KEY, 
+    )
+    start_time = time.time()
+
+        
+    response = client.chat.completions.create(
+    model=OPENAI_MINI_MODEL,
+    messages=[
+        {"role": "user", "content": prompt}
+    ],
+    temperature=temperature,
+    top_p=top_p,
+    max_tokens=max_tokens,
+    )
+    end_time = time.time()
+    latency = end_time - start_time
+
+    response_text = response.choices[0].message.content
+
+    return response_text, latency
     raise NotImplementedError("Implement call_openai_mini")
 
 
@@ -110,12 +161,48 @@ def compare_models(prompt: str) -> dict:
         (0.75 words ≈ 1 token is a rough approximation)
     """
     # TODO: call call_openai and call_openai_mini, assemble and return the dict
+    gpto4_response, gpt4o_latency = call_openai(prompt)
+    mini_response, mini_latency = call_openai_mini(prompt)
+    gpto4_cost_estimate = (len(gpto4_response.split()) / 0.75) / 1000 * COST_PER_1K_OUTPUT_TOKENS["gpt-4o"]
+    return {
+            "gpt4o_response": gpto4_response,
+            "mini_response": mini_response,
+            "gpt4o_latency": gpt4o_latency,
+            "mini_latency": mini_latency,
+            "gpt4o_cost_estimate": gpto4_cost_estimate
+        }
     raise NotImplementedError("Implement compare_models")
 
 
 # ---------------------------------------------------------------------------
 # Task 4 — Streaming chatbot with conversation history
 # ---------------------------------------------------------------------------
+# def streaming_chatbot() -> None:
+#     """
+#     Run an interactive streaming chatbot in the terminal.
+
+#     Behaviour:
+#         - Streams tokens from OpenAI as they arrive (print each chunk).
+#         - Maintains the last 3 conversation turns in history.
+#         - Typing 'quit' or 'exit' ends the loop.
+
+#     Hints:
+#         - Keep a list `history` of {"role": ..., "content": ...} dicts.
+#         - Use stream=True in client.chat.completions.create() and iterate:
+#             for chunk in stream:
+#                 delta = chunk.choices[0].delta.content or ""
+#                 print(delta, end="", flush=True)
+#         - After each turn, append the assistant reply to history.
+#         - Trim history to the last 3 turns: history = history[-3:]
+#     """
+#     # TODO: enter while-loop, read user input, stream response, maintain history
+#     raise NotImplementedError("Implement streaming_chatbot")
+
+from openai import OpenAI
+
+# Đảm bảo bạn đã khai báo sẵn model cần dùng, ví dụ:
+OPENAI_MODEL = "openai/gpt-3.5-turbo" 
+
 def streaming_chatbot() -> None:
     """
     Run an interactive streaming chatbot in the terminal.
@@ -134,12 +221,117 @@ def streaming_chatbot() -> None:
         - After each turn, append the assistant reply to history.
         - Trim history to the last 3 turns: history = history[-3:]
     """
-    # TODO: enter while-loop, read user input, stream response, maintain history
-    raise NotImplementedError("Implement streaming_chatbot")
-
+    # Khởi tạo client 
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=API_KEY
+    )
+    
+    # Keep a list `history` of {"role": ..., "content": ...} dicts.
+    history = []
+    
+    # enter while-loop
+    while True:
+        # read user input
+        user_input = input("You: ")
+        
+        # Typing 'quit' or 'exit' ends the loop.
+        if user_input.lower() in ['quit', 'exit']:
+            break
+            
+        history.append({"role": "user", "content": user_input})
+        
+        # Use stream=True in client.chat.completions.create()
+        stream = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=history,
+            stream=True
+        )
+        
+        assistant_reply = ""
+        print("Assistant: ", end="")
+        
+        # iterate for chunk in stream
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            print(delta, end="", flush=True)
+            assistant_reply += delta
+            
+        print() # Xuống dòng cho đẹp sau khi stream xong
+        
+        # After each turn, append the assistant reply to history.
+        history.append({"role": "assistant", "content": assistant_reply})
+        
+        # Trim history to the last 3 turns: history = history[-3:]
+        history = history[-3:]
 
 # ---------------------------------------------------------------------------
 # Bonus Task A — Retry with exponential backoff
+# ---------------------------------------------------------------------------
+# def retry_with_backoff(
+#     fn: Callable,
+#     max_retries: int = 3,
+#     base_delay: float = 0.1,
+# ) -> Any:
+#     """
+#     Call fn(). If it raises an exception, retry up to max_retries times
+#     with exponential backoff (base_delay * 2^attempt).
+
+#     Args:
+#         fn:          Zero-argument callable to execute.
+#         max_retries: Maximum number of retry attempts.
+#         base_delay:  Initial delay in seconds before the first retry.
+
+#     Returns:
+#         The return value of fn() on success.
+
+#     Raises:
+#         The last exception raised by fn() after all retries are exhausted.
+#     """
+#     # TODO: implement retry loop with exponential backoff
+#     raise NotImplementedError("Implement retry_with_backoff")
+
+
+# # ---------------------------------------------------------------------------
+# # Bonus Task B — Batch compare
+# # ---------------------------------------------------------------------------
+# def batch_compare(prompts: list[str]) -> list[dict]:
+#     """
+#     Run compare_models on each prompt in the list.
+
+#     Args:
+#         prompts: List of prompt strings.
+
+#     Returns:
+#         List of dicts, each being the compare_models result with an extra
+#         key "prompt" containing the original prompt string.
+#     """
+#     # TODO: iterate over prompts, call compare_models, add "prompt" key
+#     raise NotImplementedError("Implement batch_compare")
+
+
+# # ---------------------------------------------------------------------------
+# # Bonus Task C — Format comparison table
+# # ---------------------------------------------------------------------------
+# def format_comparison_table(results: list[dict]) -> str:
+#     """
+#     Format a list of compare_models results as a readable text table.
+
+#     Args:
+#         results: List of dicts as returned by batch_compare.
+
+#     Returns:
+#         A formatted string table with columns:
+#         Prompt | GPT-4o Response | Mini Response | GPT-4o Latency | Mini Latency
+
+#     Hint:
+#         Truncate long text to 40 characters for readability.
+#     """
+#     # TODO: build and return a formatted table string
+#     raise NotImplementedError("Implement format_comparison_table")
+
+# ---------------------------------------------------------------------------
+# Bonus Task A — Retry with backoff
 # ---------------------------------------------------------------------------
 def retry_with_backoff(
     fn: Callable,
@@ -149,20 +341,21 @@ def retry_with_backoff(
     """
     Call fn(). If it raises an exception, retry up to max_retries times
     with exponential backoff (base_delay * 2^attempt).
-
-    Args:
-        fn:          Zero-argument callable to execute.
-        max_retries: Maximum number of retry attempts.
-        base_delay:  Initial delay in seconds before the first retry.
-
-    Returns:
-        The return value of fn() on success.
-
-    Raises:
-        The last exception raised by fn() after all retries are exhausted.
     """
-    # TODO: implement retry loop with exponential backoff
-    raise NotImplementedError("Implement retry_with_backoff")
+    attempt = 0
+    while True:
+        try:
+            return fn()
+        except Exception as e:
+            if attempt >= max_retries:
+                raise e
+            
+            # Tính toán thời gian chờ theo công thức Exponential Backoff
+            delay = base_delay * (2 ** attempt)
+            time.sleep(delay)
+            
+            # Tăng biến đếm số lần thử
+            attempt += 1
 
 
 # ---------------------------------------------------------------------------
@@ -171,16 +364,21 @@ def retry_with_backoff(
 def batch_compare(prompts: list[str]) -> list[dict]:
     """
     Run compare_models on each prompt in the list.
-
-    Args:
-        prompts: List of prompt strings.
-
-    Returns:
-        List of dicts, each being the compare_models result with an extra
-        key "prompt" containing the original prompt string.
     """
-    # TODO: iterate over prompts, call compare_models, add "prompt" key
-    raise NotImplementedError("Implement batch_compare")
+    results = []
+    
+    # Duyệt qua từng câu prompt trong danh sách
+    for prompt in prompts:
+        # Gọi hàm compare_models (chắc chắn rằng bạn đã định nghĩa nó ở trên)
+        result_dict = compare_models(prompt)
+        
+        # Thêm key "prompt" chứa câu hỏi gốc vào dictionary
+        result_dict["prompt"] = prompt
+        
+        # Đưa vào danh sách kết quả tổng
+        results.append(result_dict)
+        
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -189,21 +387,37 @@ def batch_compare(prompts: list[str]) -> list[dict]:
 def format_comparison_table(results: list[dict]) -> str:
     """
     Format a list of compare_models results as a readable text table.
-
-    Args:
-        results: List of dicts as returned by batch_compare.
-
-    Returns:
-        A formatted string table with columns:
-        Prompt | GPT-4o Response | Mini Response | GPT-4o Latency | Mini Latency
-
-    Hint:
-        Truncate long text to 40 characters for readability.
     """
-    # TODO: build and return a formatted table string
-    raise NotImplementedError("Implement format_comparison_table")
+    def truncate(text: str, max_len: int = 40) -> str:
+        if not text: return "".ljust(max_len)
+        clean_text = text.replace("\n", " ").strip()
+        if len(clean_text) > max_len:
+            clean_text = clean_text[:max_len - 3] + "..."
+        return clean_text.ljust(max_len)
 
+    headers = (
+        f"{'Prompt'.ljust(40)} | "
+        f"{'GPT-4o Response'.ljust(40)} | "
+        f"{'Mini Response'.ljust(40)} | "
+        f"{'GPT-4o Latency'.ljust(15)} | "
+        f"{'Mini Latency'.ljust(15)}"
+    )
+    
+    separator = "-" * len(headers)
+    table_rows = [headers, separator]
 
+    for res in results:
+        prompt = truncate(res.get("prompt", ""))
+        gpt4o_resp = truncate(res.get("gpt4o_response", ""))
+        mini_resp = truncate(res.get("mini_response", ""))
+        
+        gpt4o_lat = f"{res.get('gpt4o_latency', 0):.2f}s".ljust(15)
+        mini_lat = f"{res.get('mini_latency', 0):.2f}s".ljust(15)
+        
+        row_string = f"{prompt} | {gpt4o_resp} | {mini_resp} | {gpt4o_lat} | {mini_lat}"
+        table_rows.append(row_string)
+
+    return "\n".join(table_rows)
 # ---------------------------------------------------------------------------
 # Entry point for manual testing
 # ---------------------------------------------------------------------------
