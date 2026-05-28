@@ -80,8 +80,6 @@ def call_openai(
 
     # 6. Trả về đúng định dạng tuple
     return response_text, latency
-    raise NotImplementedError("Implement call_openai")
-
 
 
 
@@ -134,7 +132,6 @@ def call_openai_mini(
     response_text = response.choices[0].message.content
 
     return response_text, latency
-    raise NotImplementedError("Implement call_openai_mini")
 
 
 # ---------------------------------------------------------------------------
@@ -171,37 +168,7 @@ def compare_models(prompt: str) -> dict:
             "mini_latency": mini_latency,
             "gpt4o_cost_estimate": gpto4_cost_estimate
         }
-    raise NotImplementedError("Implement compare_models")
 
-
-# ---------------------------------------------------------------------------
-# Task 4 — Streaming chatbot with conversation history
-# ---------------------------------------------------------------------------
-# def streaming_chatbot() -> None:
-#     """
-#     Run an interactive streaming chatbot in the terminal.
-
-#     Behaviour:
-#         - Streams tokens from OpenAI as they arrive (print each chunk).
-#         - Maintains the last 3 conversation turns in history.
-#         - Typing 'quit' or 'exit' ends the loop.
-
-#     Hints:
-#         - Keep a list `history` of {"role": ..., "content": ...} dicts.
-#         - Use stream=True in client.chat.completions.create() and iterate:
-#             for chunk in stream:
-#                 delta = chunk.choices[0].delta.content or ""
-#                 print(delta, end="", flush=True)
-#         - After each turn, append the assistant reply to history.
-#         - Trim history to the last 3 turns: history = history[-3:]
-#     """
-#     # TODO: enter while-loop, read user input, stream response, maintain history
-#     raise NotImplementedError("Implement streaming_chatbot")
-
-from openai import OpenAI
-
-# Đảm bảo bạn đã khai báo sẵn model cần dùng, ví dụ:
-OPENAI_MODEL = "openai/gpt-3.5-turbo" 
 
 def streaming_chatbot() -> None:
     """
@@ -265,70 +232,6 @@ def streaming_chatbot() -> None:
         # Trim history to the last 3 turns: history = history[-3:]
         history = history[-3:]
 
-# ---------------------------------------------------------------------------
-# Bonus Task A — Retry with exponential backoff
-# ---------------------------------------------------------------------------
-# def retry_with_backoff(
-#     fn: Callable,
-#     max_retries: int = 3,
-#     base_delay: float = 0.1,
-# ) -> Any:
-#     """
-#     Call fn(). If it raises an exception, retry up to max_retries times
-#     with exponential backoff (base_delay * 2^attempt).
-
-#     Args:
-#         fn:          Zero-argument callable to execute.
-#         max_retries: Maximum number of retry attempts.
-#         base_delay:  Initial delay in seconds before the first retry.
-
-#     Returns:
-#         The return value of fn() on success.
-
-#     Raises:
-#         The last exception raised by fn() after all retries are exhausted.
-#     """
-#     # TODO: implement retry loop with exponential backoff
-#     raise NotImplementedError("Implement retry_with_backoff")
-
-
-# # ---------------------------------------------------------------------------
-# # Bonus Task B — Batch compare
-# # ---------------------------------------------------------------------------
-# def batch_compare(prompts: list[str]) -> list[dict]:
-#     """
-#     Run compare_models on each prompt in the list.
-
-#     Args:
-#         prompts: List of prompt strings.
-
-#     Returns:
-#         List of dicts, each being the compare_models result with an extra
-#         key "prompt" containing the original prompt string.
-#     """
-#     # TODO: iterate over prompts, call compare_models, add "prompt" key
-#     raise NotImplementedError("Implement batch_compare")
-
-
-# # ---------------------------------------------------------------------------
-# # Bonus Task C — Format comparison table
-# # ---------------------------------------------------------------------------
-# def format_comparison_table(results: list[dict]) -> str:
-#     """
-#     Format a list of compare_models results as a readable text table.
-
-#     Args:
-#         results: List of dicts as returned by batch_compare.
-
-#     Returns:
-#         A formatted string table with columns:
-#         Prompt | GPT-4o Response | Mini Response | GPT-4o Latency | Mini Latency
-
-#     Hint:
-#         Truncate long text to 40 characters for readability.
-#     """
-#     # TODO: build and return a formatted table string
-#     raise NotImplementedError("Implement format_comparison_table")
 
 # ---------------------------------------------------------------------------
 # Bonus Task A — Retry with backoff
